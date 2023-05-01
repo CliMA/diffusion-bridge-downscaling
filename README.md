@@ -3,7 +3,7 @@ Code to recreate results from "Unpaired Downscaling of Fluid Flows with Diffusio
 
 First, navigate to `CliMAgen.jl/examples/context2dturbulence`.
 - Training:
-Run `julia --project training.jl Experiment.toml`
+Run `julia --project training.jl Experiment_512x512.toml`
 
 - Computing and saving statistics of training images:
 In order to generate statistics from all of the training data, using 2000 pixels from each image, for the wavenumber 16 dataset, run `julia --project analyze_gen_by_batch.jl 2000 16 Experiment_512x512.toml`. The model is not used in this process, but the Experiment.toml specifies where the preprocessing parameter file is stored. By default, our dataloader preprocesses the data, so the inverse transformation is required before computing statistics.
