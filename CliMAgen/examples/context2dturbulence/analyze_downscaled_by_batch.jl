@@ -54,13 +54,8 @@ function unpack_experiment(experiment_toml, wavenumber; device = Flux.gpu, FT=Fl
     return model, xtrain, ctrain, scaling
 end
 
-function generate_samples!(samples, init_x, model, context, time_steps, Δt, sampler; forward = false)
-    # sample from the trained model
-    if sampler == "euler"
-        samples .= Euler_Maruyama_sampler(model, init_x, time_steps, Δt; c=context, forward=forward)
-    elseif sampler == "pc"
-        @error("Not yet supported")
-    end
+function generate_samples!(samples, init_x, model, context, time_steps, Δt; forward = false)
+    samples .= Euler_Maruyama_sampler(model, init_x, time_steps, Δt; c=context, forward=forward)
     return samples
 end
 
@@ -81,9 +76,7 @@ function hard_filter(x, k)
     return real(y)
 end
 
-function main(nbatches, npixels, wavenumber;
-              source_toml="experiments/Experiment_resize_64_dropout_preprocess_041023.toml",
-              target_toml="experiments/Experiment_all_data_centered_dropout_05.toml")
+function main(nbatches, npixels, wavenumber,source_toml, target_toml)
     FT = Float32
     device = Flux.gpu
     stats_savedir = string("stats/512x512/downscale_gen")
@@ -91,7 +84,6 @@ function main(nbatches, npixels, wavenumber;
     tilesize = 512
     context_channels = 1
     noised_channels = 2
-    sampler = "euler"
 
     forward_model, xsource, csource, scaling_source = unpack_experiment(source_toml, wavenumber; device = device, FT=FT)
     reverse_model, xtarget, ctarget, scaling_target = unpack_experiment(target_toml, wavenumber; device = device,FT=FT)
@@ -156,8 +148,7 @@ function main(nbatches, npixels, wavenumber;
                                             forward_model,
                                             csource[:,:,:,selection],# forward context
                                             time_steps_forward,
-                                            Δt_forward,
-                                            sampler;
+                                            Δt_forward;
                                             forward = true);
 
         # If the models use different sigma schedules or if the times are different, we need to adjust
@@ -170,8 +161,7 @@ function main(nbatches, npixels, wavenumber;
                                                               reverse_model,
                                                               ctarget[:,:,:,1:nsamples],
                                                               time_steps_reverse,
-                                                              Δt_reverse,
-                                                              sampler;
+                                                              Δt_reverse;
                                                               forward = false);
         
 
@@ -238,5 +228,5 @@ function main(nbatches, npixels, wavenumber;
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main(parse(Int64, ARGS[1]), parse(Int64, ARGS[2]), parse(Float32, ARGS[3]))
+    main(parse(Int64, ARGS[1]), parse(Int64, ARGS[2]), parse(Float32, ARGS[3]), ARGS[4], ARGS[5])
 end

@@ -51,26 +51,15 @@ function obtain_model(params)
     return model
 end
 
-function sampling_params(params)
-    nsteps = params.sampling.nsteps
-    sampler = params.sampling.sampler
-    tilesize_sampling = params.sampling.tilesize
-    return nsteps, sampler, tilesize_sampling
-end
-
-function generate_samples!(samples, init_x, model, context, σ_T, time_steps, Δt, sampler)
+function generate_samples!(samples, init_x, model, context, σ_T, time_steps, Δt)
     FT = eltype(samples)
     init_x .= randn!(init_x) .* σ_T
     # sample from the trained model
-    if sampler == "euler"
-        samples .= Euler_Maruyama_sampler(model, init_x, time_steps, Δt; c=context)
-    elseif sampler == "pc"
-        samples .= predictor_corrector_sampler(model, init_x, time_steps, Δt; c=context)
-    end
+    samples .= Euler_Maruyama_sampler(model, init_x, time_steps, Δt; c=context)
     return samples
 end
 
-function main(nbatches, npixels, wavenumber; experiment_toml="Experiment.toml")
+function main(nbatches, npixels, wavenumber, experiment_toml)
     FT = Float32
     # read experiment parameters from file
     params = TOML.parsefile(experiment_toml)
@@ -99,17 +88,18 @@ function main(nbatches, npixels, wavenumber; experiment_toml="Experiment.toml")
     end
     context = obtain_context(params, wavenumber, FT) |> device
     model = obtain_model(params)
-    nsamples = 25
-    nsteps, sampler, tilesize = sampling_params(params)
+    imgsize = 512
+    nsteps = params.sampling.nsteps
+    nsamples = params.sampling.nsamples
     model = device(model)
     scaling = JLD2.load_object(preprocess_params_file)
     
     # Allocate memory for the generated samples and pixel values.
-    samples = zeros(FT, (tilesize, tilesize, context_channels+noised_channels, nsamples)) |> device
+    samples = zeros(FT, (imgsize, imgsize, context_channels+noised_channels, nsamples)) |> device
     sample_pixels = reshape(samples[:,:, 1:noised_channels, :], (prod(size(samples)[1:2]), noised_channels, nsamples))
 
     # Initial condition array
-    init_x =  zeros(FT, (tilesize, tilesize, noised_channels, nsamples)) |> device
+    init_x =  zeros(FT, (imgsize, imgsize, noised_channels, nsamples)) |> device
 
     # Setup timestepping simulations
     t = ones(FT, nsamples) |> device
@@ -129,7 +119,7 @@ function main(nbatches, npixels, wavenumber; experiment_toml="Experiment.toml")
         # Random selection of contexts
         selection = StatsBase.sample(indices, nsamples)
         # Sample generation only fills in the noised channels; the contextual channels are left untouched.
-        samples[:,:,1:noised_channels,:] .= generate_samples!(samples[:,:,1:noised_channels,:],init_x,model, context[:,:,:,selection], σ_T, time_steps, Δt, sampler)
+        samples[:,:,1:noised_channels,:] .= generate_samples!(samples[:,:,1:noised_channels,:],init_x,model, context[:,:,:,selection], σ_T, time_steps, Δt)
         
         # Carry out the inverse preprocessing transform to go back to real space
         samples .= invert_preprocessing(cpu(samples), scaling) |> device
@@ -169,5 +159,5 @@ function main(nbatches, npixels, wavenumber; experiment_toml="Experiment.toml")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main(parse(Int64, ARGS[1]), parse(Int64, ARGS[2]),  parse(Float32, ARGS[3]); experiment_toml=ARGS[4])
+    main(parse(Int64, ARGS[1]), parse(Int64, ARGS[2]),  parse(Float32, ARGS[3]), ARGS[4])
 end

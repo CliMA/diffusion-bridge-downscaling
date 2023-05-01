@@ -3,14 +3,13 @@ project           = "CliMAgen.jl"
 name              = "context2dturbulence"
 savedir           = "output"
 rngseed           = 123
-logging           = true
 nogpu             = false
 
 [data]
 batchsize         = 1
 resolution        = 512
 wavenumber        = 0
-fraction          = 0.02
+fraction          = 1.0
 standard_scaling  = false
 
 [model]
@@ -18,7 +17,7 @@ noised_channels   = 2
 context_channels  = 1
 sigma_max         = 1000.0
 sigma_min         = 1e-2
-dropout_p         = 0.0
+dropout_p         = 0.5
 mean_bypass       = true
 shift_input       = true
 shift_output      = true
@@ -39,12 +38,9 @@ ema_rate          = 0.999
 nwarmup           = 5000
 
 [training]
-nepochs           = 1
-freq_chckpt       = 80
+nepochs           = 125
+freq_chckpt       = 125
 
 [sampling]
 nsteps            = 500
-nsamples          = 10
-nimages           = 10
-sampler           = "euler"
-tilesize          = 512
+nsamples          = 25
