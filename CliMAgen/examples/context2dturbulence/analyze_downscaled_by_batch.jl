@@ -76,15 +76,26 @@ function hard_filter(x, k)
     return real(y)
 end
 
-function main(nbatches, npixels, wavenumber,source_toml, target_toml)
-    FT = Float32
-    device = Flux.gpu
+function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float32)
     stats_savedir = string("stats/512x512/downscale_gen")
-    nsamples = 25
-    tilesize = 512
-    context_channels = 1
-    noised_channels = 2
-
+    
+    params = TOML.parsefile(target_toml)
+    params = CliMAgen.dict2nt(params)
+    nsamples = params.sampling.nsamples
+    nsteps = params.sampling.nsteps
+    imgsize = params.sampling.imgsize
+    context_channels = params.model.context_channels
+    noised_channels = params.model.noised_channels
+    # set up device
+    nogpu = params.experiment.nogpu
+    if !nogpu && CUDA.has_cuda()
+        device = Flux.gpu
+        @info "Sampling on GPU"
+    else
+        device = Flux.cpu
+        @info "Sampling on CPU"
+    end
+    
     forward_model, xsource, csource, scaling_source = unpack_experiment(source_toml, wavenumber; device = device, FT=FT)
     reverse_model, xtarget, ctarget, scaling_target = unpack_experiment(target_toml, wavenumber; device = device,FT=FT)
 
@@ -107,18 +118,18 @@ function main(nbatches, npixels, wavenumber,source_toml, target_toml)
     end
     @show forward_t_end
     @show reverse_t_end
-    # We've been taking 500 steps for the entire (0,1] timespan, so scale
-    # accordingly.
-    nsteps =  Int64.(round(forward_t_end*500))
+    # We've been taking nsteps for the entire (0,1] timespan, so scale
+    # accordingly, since we will be integrating for less time now.
+    nsteps =  Int64.(round(forward_t_end*nsteps))
 
     # Allocate memory for the samples and their pixel values
-    target_samples= zeros(FT, (tilesize, tilesize, context_channels+noised_channels, nsamples)) |> device
-    lo_res_target_samples = zeros(FT, (tilesize, tilesize, context_channels+noised_channels, nsamples)) |> device
+    target_samples= zeros(FT, (imgsize, imgsize, context_channels+noised_channels, nsamples)) |> device
+    lo_res_target_samples = zeros(FT, (imgsize, imgsize, context_channels+noised_channels, nsamples)) |> device
     sample_pixels = reshape(target_samples[:,:, 1:noised_channels, :], (prod(size(target_samples)[1:2]), noised_channels, nsamples))
-    source_samples = zeros(FT, (tilesize, tilesize, context_channels+noised_channels, nsamples)) |> device
+    source_samples = zeros(FT, (imgsize, imgsize, context_channels+noised_channels, nsamples)) |> device
 
     # Allocate memory for the noised channels at t = t_end
-    init_x_reverse =  zeros(FT, (tilesize, tilesize, noised_channels, nsamples)) |> device
+    init_x_reverse =  zeros(FT, (imgsize, imgsize, noised_channels, nsamples)) |> device
 
     # Set up timesteps for both forward and reverse
     t_forward = zeros(FT, nsamples) .+ forward_t_end |> device

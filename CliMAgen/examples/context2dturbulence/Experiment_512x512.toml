@@ -1,0 +1,47 @@
+[experiment]
+project           = "CliMAgen.jl"
+name              = "context2dturbulence_512x512"
+savedir           = "output_512x512"
+rngseed           = 123
+nogpu             = false
+
+[data]
+batchsize         = 4
+resolution        = 512
+wavenumber        = 0
+fraction          = 1.0
+standard_scaling  = false
+
+[model]
+noised_channels   = 2
+context_channels  = 1
+sigma_max         = 1000.0
+sigma_min         = 1e-2
+dropout_p         = 0.5
+mean_bypass       = true
+shift_input       = true
+shift_output      = true
+scale_mean_bypass = true
+gnorm             = true
+proj_kernelsize   = 3
+outer_kernelsize  = 3
+middle_kernelsize = 3
+inner_kernelsize  = 3
+
+[optimizer]
+learning_rate     = 2e-4
+epsilon           = 1e-8
+beta_1            = 0.9
+beta_2            = 0.999
+gradnorm          = 1.0
+ema_rate          = 0.999
+nwarmup           = 5000
+
+[training]
+nepochs           = 125
+freq_chckpt       = 125
+
+[sampling]
+nsteps            = 500
+nsamples          = 25
+imgsize           = 512

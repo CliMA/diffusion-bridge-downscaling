@@ -1,13 +1,13 @@
 [experiment]
 project           = "CliMAgen.jl"
-name              = "context2dturbulence"
-savedir           = "output"
+name              = "context2dturbulence_64x64"
+savedir           = "output_64x64"
 rngseed           = 123
 nogpu             = false
 
 [data]
-batchsize         = 1
-resolution        = 512
+batchsize         = 64
+resolution        = 64
 wavenumber        = 0
 fraction          = 1.0
 standard_scaling  = false
@@ -17,7 +17,7 @@ noised_channels   = 2
 context_channels  = 1
 sigma_max         = 1000.0
 sigma_min         = 1e-2
-dropout_p         = 0.5
+dropout_p         = 0.1
 mean_bypass       = true
 shift_input       = true
 shift_output      = true
@@ -38,9 +38,10 @@ ema_rate          = 0.999
 nwarmup           = 5000
 
 [training]
-nepochs           = 125
-freq_chckpt       = 125
+nepochs           = 250
+freq_chckpt       = 250
 
 [sampling]
 nsteps            = 500
 nsamples          = 25
+imgsize           = 512

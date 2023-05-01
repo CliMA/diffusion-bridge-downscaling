@@ -42,13 +42,13 @@ function obtain_train_dl(params, wavenumber, FT)
     return dl
 end
 
-function main(npixels, wavenumber, experiment_toml)
-    FT = Float32
+function main(npixels, wavenumber, experiment_toml; FT=Float32)
+    stats_savedir = string("stats/",resolution,"x", resolution,"/train")
+    
     # read experiment parameters from file
     params = TOML.parsefile(experiment_toml)
     params = CliMAgen.dict2nt(params)
     batchsize = params.data.batchsize
-
     rngseed = params.experiment.rngseed
     # set up rng
     rngseed > 0 && Random.seed!(rngseed)
@@ -61,9 +61,7 @@ function main(npixels, wavenumber, experiment_toml)
     preprocess_params_file = joinpath(savedir, "preprocessing_standard_scaling_$standard_scaling.jld2")
     scaling = JLD2.load_object(preprocess_params_file)
     
-    # The 64x64 resolution images have been enlarged to 512x512
-    imgsize = 512
-    stats_savedir = string("stats/",resolution,"x", resolution,"/train")
+    imgsize = params.sampling.imgsize
     filenames = [joinpath(stats_savedir, "train_statistics_ch1_$wavenumber.csv"),joinpath(stats_savedir, "train_statistics_ch2_$wavenumber.csv")]
     pixel_filenames = [joinpath(stats_savedir, "train_pixels_ch1_$wavenumber.csv"),joinpath(stats_savedir, "train_pixels_ch2_$wavenumber.csv")]
     train_pixels = zeros(FT,(imgsize*imgsize, noised_channels, batchsize))

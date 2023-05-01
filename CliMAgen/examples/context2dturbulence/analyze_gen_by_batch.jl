@@ -59,8 +59,9 @@ function generate_samples!(samples, init_x, model, context, σ_T, time_steps, Δ
     return samples
 end
 
-function main(nbatches, npixels, wavenumber, experiment_toml)
-    FT = Float32
+function main(nbatches, npixels, wavenumber, experiment_toml; FT=Float32)
+    stats_savedir = string("stats/",resolution,"x", resolution,"/gen")
+    
     # read experiment parameters from file
     params = TOML.parsefile(experiment_toml)
     params = CliMAgen.dict2nt(params)
@@ -69,11 +70,13 @@ function main(nbatches, npixels, wavenumber, experiment_toml)
     # set up rng
     rngseed > 0 && Random.seed!(rngseed)
 
+    imgsize = params.sampling.imgsize
+    nsteps = params.sampling.nsteps
+    nsamples = params.sampling.nsamples
     noised_channels = params.model.noised_channels
     context_channels = params.model.context_channels
     resolution = params.data.resolution
     savedir = params.experiment.savedir
-    stats_savedir = string("stats/",resolution,"x", resolution,"/gen")
     standard_scaling  = params.data.standard_scaling
     preprocess_params_file = joinpath(savedir, "preprocessing_standard_scaling_$standard_scaling.jld2")
     nogpu = params.experiment.nogpu
@@ -88,9 +91,6 @@ function main(nbatches, npixels, wavenumber, experiment_toml)
     end
     context = obtain_context(params, wavenumber, FT) |> device
     model = obtain_model(params)
-    imgsize = 512
-    nsteps = params.sampling.nsteps
-    nsamples = params.sampling.nsamples
     model = device(model)
     scaling = JLD2.load_object(preprocess_params_file)
     
