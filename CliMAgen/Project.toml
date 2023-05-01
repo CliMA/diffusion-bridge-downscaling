@@ -1,0 +1,29 @@
+name = "CliMAgen"
+uuid = "36c19f5a-2420-4be7-ae2a-5a58b2348981"
+authors = ["Climate Modeling Alliance"]
+version = "0.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[compat]
+ArgParse = "1.1"
+BSON = "0.3"
+CUDA = "3.12"
+Flux = "0.13"
+ProgressMeter = "1.7"
+julia = "1.7, 1.8"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
