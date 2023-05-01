@@ -27,21 +27,31 @@ function unpack_experiment(experiment_toml, wavenumber; device = Flux.gpu, FT=Fl
     context_channels = params.model.context_channels
 
     if resolution == 64
-        wavenumber = 0
         # Our coarse res data has flat context. If we did have nonzero context fields,
         # we'd have to be careful to get the right wavenumber
         # so that the diffusion bridge is done for the same context in both directions.
+        dl, _ =  get_data_context2dturbulence(
+            batchsize;
+            resolution = resolution,
+            wavenumber = 0,
+            fraction = fraction,
+            standard_scaling = standard_scaling,
+            FT=FT,
+            save=true,
+            preprocess_params_file=preprocess_params_file
+        )
+    else
+        dl, _ =  get_data_context2dturbulence(
+            batchsize;
+            resolution = resolution,
+            wavenumber = wavenumber,
+            fraction = fraction,
+            standard_scaling = standard_scaling,
+            FT=FT,
+            read=true,
+            preprocess_params_file=preprocess_params_file
+        )
     end
-    dl, _ =  get_data_context2dturbulence(
-        batchsize;
-        resolution = resolution,
-        wavenumber = wavenumber,
-        fraction = fraction,
-        standard_scaling = standard_scaling,
-        FT=FT,
-        read=true,
-        preprocess_params_file=preprocess_params_file
-    )
     train = cat([x for x in dl]..., dims=4)
 
     xtrain = train[:,:,1:noised_channels,:] |> device
@@ -78,6 +88,7 @@ end
 
 function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float32)
     stats_savedir = string("stats/512x512/downscale_gen")
+    !ispath(stats_savedir) && mkpath(stats_savedir)
     
     params = TOML.parsefile(target_toml)
     params = CliMAgen.dict2nt(params)

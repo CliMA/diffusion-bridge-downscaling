@@ -61,6 +61,7 @@ end
 
 function main(nbatches, npixels, wavenumber, experiment_toml; FT=Float32)
     stats_savedir = string("stats/",resolution,"x", resolution,"/gen")
+    !ispath(stats_savedir) && mkpath(stats_savedir)
     
     # read experiment parameters from file
     params = TOML.parsefile(experiment_toml)

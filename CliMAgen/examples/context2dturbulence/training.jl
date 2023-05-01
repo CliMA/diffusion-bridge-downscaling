@@ -152,7 +152,7 @@ function run_training(params; FT=Float32)
     )
 end
 
-function main(; experiment_toml="Experiment.toml")
+function main("Experiment.toml")
     FT = Float32
 
     # read experiment parameters from file
@@ -166,5 +166,5 @@ function main(; experiment_toml="Experiment.toml")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main(experiment_toml = ARGS[1])
+    main(ARGS[1])
 end
