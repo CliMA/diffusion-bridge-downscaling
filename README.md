@@ -1,7 +1,11 @@
 # diffusion-bridge-downscaling
-Code to recreate results from "Unpaired Downscaling of Fluid Flows with Diffusion Bridges", Bischoff &amp; Deck (2023).
+Code repository for the preprint "Unpaired Downscaling of Fluid Flows with Diffusion Bridges", Bischoff &amp; Deck (2023).
+In order to train model, follow the the steps below.
 
 First, navigate to `CliMAgen.jl/examples/context2dturbulence`.
+- Setup:
+Run `julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.build(); Pkg.precompile'`
+
 - Training:
 Run `julia --project training.jl Experiment_512x512.toml`
 
@@ -15,4 +19,4 @@ In order to generate statistics from 32 batches of 25 images, using 2000 pixels 
 In order to generate statistics for 32 batches of 25 downscaled images, using 2000 pixels from each image, for the wavenumber 16 dataset, run `julia --project analyze_downscaled_by_batch.jl 32 2000 16 Experiment_64x64.toml Experiment_512x512.toml`.
 Again, no model is required for the low-resolution dataset, but the Experiment_64x64.toml specifies where the preprocessing parameter file is stored. By default, our dataloader preprocesses the data, so the inverse transformation is required before computing statistics.
 
-This generates approximately the same number of samples in the training statistics, generated statistics, and downscaled statistics. While the code does run on the CPU, we recommend running on a GPU. Parameter choices for training, for the diffusion model, and for sampling are in the experiment toml files.
+This generates approximately the same number of samples in the training statistics, generated statistics, and downscaled statistics. While the code does run on the CPU, we recommend running on a GPU. Parameter choices for training, for the diffusion model, and for sampling are in the experiment TOML files.
