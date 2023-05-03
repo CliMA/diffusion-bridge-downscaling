@@ -152,7 +152,7 @@ function run_training(params; FT=Float32)
     )
 end
 
-function main("Experiment.toml")
+function main(experiment_toml)
     FT = Float32
 
     # read experiment parameters from file
