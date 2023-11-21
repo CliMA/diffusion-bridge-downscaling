@@ -6,7 +6,7 @@ rngseed           = 123
 nogpu             = false
 
 [data]
-batchsize         = 64
+batchsize         = 4
 resolution        = 64
 wavenumber        = 0
 fraction          = 1.0
@@ -38,8 +38,8 @@ ema_rate          = 0.999
 nwarmup           = 5000
 
 [training]
-nepochs           = 250
-freq_chckpt       = 250
+nepochs           = 1
+freq_chckpt       = 1
 
 [sampling]
 nsteps            = 500

@@ -3,6 +3,7 @@ using CUDA
 using Flux
 using Random
 using TOML
+using DelimitedFiles
 
 using CliMAgen
 using CliMAgen: dict2nt

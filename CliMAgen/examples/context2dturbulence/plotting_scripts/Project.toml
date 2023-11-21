@@ -1,0 +1,11 @@
+[deps]
+Bootstrap = "e28b5b4c-05e8-5b66-bc03-6f0c0a0a06e0"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CliMADatasets = "49523d62-8978-4391-abdd-b8467d4505ae"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+KernelDensity = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
+UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"

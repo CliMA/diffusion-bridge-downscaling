@@ -5,6 +5,7 @@ using ProgressMeter
 using Random
 using Statistics
 using TOML
+using DelimitedFiles
 
 using CliMAgen
 package_dir = pkgdir(CliMAgen)
@@ -86,7 +87,10 @@ function hard_filter(x, k)
     return real(y)
 end
 
-function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float32)
+function main(nbatches, npixels, wavenumber; source_toml = "Experiment_64x64.toml",
+                                             target_toml = "Experiment_512x512.toml",
+                                             FT=Float32,
+                                             mean_std_datafile = "./train_means_stds.csv")
     stats_savedir = string("stats/512x512/downscale_gen")
     !ispath(stats_savedir) && mkpath(stats_savedir)
     
@@ -138,7 +142,7 @@ function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float3
     lo_res_target_samples = zeros(FT, (imgsize, imgsize, context_channels+noised_channels, nsamples)) |> device
     sample_pixels = reshape(target_samples[:,:, 1:noised_channels, :], (prod(size(target_samples)[1:2]), noised_channels, nsamples))
     source_samples = zeros(FT, (imgsize, imgsize, context_channels+noised_channels, nsamples)) |> device
-
+    corr =  zeros(FT, (imgsize, imgsize, 1, nsamples))
     # Allocate memory for the noised channels at t = t_end
     init_x_reverse =  zeros(FT, (imgsize, imgsize, noised_channels, nsamples)) |> device
 
@@ -154,13 +158,23 @@ function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float3
     # Filenames for saving
     filenames = [joinpath(stats_savedir, "downscale_gen_statistics_ch1_$wavenumber.csv"),
                  joinpath(stats_savedir, "downscale_gen_statistics_ch2_$wavenumber.csv")]
+    corr_filename = joinpath(stats_savedir, "corr_spectrum_$wavenumber.csv")
+
     pixel_filenames = [joinpath(stats_savedir, "downscale_gen_pixels_ch1_$wavenumber.csv"),joinpath(stats_savedir, "downscale_gen_pixels_ch2_$wavenumber.csv")]
     L2_filenames = [joinpath(stats_savedir, "downscale_gen_L2_ch1_$wavenumber.csv"),joinpath(stats_savedir, "downscale_gen_L2_ch2_$wavenumber.csv")]
+    # Read in mean and std of data from training data; used in correlation statistics
+    means_stds = readdlm(mean_std_datafile, ',')
+    means_stds = means_stds[(means_stds[:,2] .==wavenumber) .& (means_stds[:,1] .==512),:]
+    μ1 = means_stds[3]
+    μ2 = means_stds[4]
+    σ1 = means_stds[5]
+    σ2 = means_stds[6]
 
     # Obtain the indices of the source data.
     # We'll randomly sample from this for the initial conditions of the forward model.
     indices = 1:1:size(csource)[end]
     for batch in 1:nbatches
+        @info batch
         selection = StatsBase.sample(indices, nsamples)
         # Integrate forwards to fill init_x_reverse in place
         # The IC for this step are xsource[:,:,1:noised_channels,selection]
@@ -224,7 +238,15 @@ function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float3
         sample_pixels .= reshape(target_samples[:,:, 1:noised_channels, :], (prod(size(target_samples)[1:2]), noised_channels, nsamples))
         pixel_indices = StatsBase.sample(1:1:size(sample_pixels)[1], npixels)
 
+        # pixelwise correlation
+        # demean using values from training data
+        # correlation field
+        corr .= (cpu(target_samples)[:,:,[1],:] .- μ1).*(cpu(target_samples)[:,:,[2],:] .- μ2) ./ (σ1*σ2)
+        corr_spectra = mapslices(x -> hcat(power_spectrum2d(x)[1]), corr, dims =[1,2])
         #save the metrics
+        open(corr_filename, "a") do io
+            writedlm(io, transpose(corr_spectra[:,1,1,:]), ',')
+        end
         for ch in 1:noised_channels
             # write pixel vaues to pixel file
             open(pixel_filenames[ch],"a") do io
@@ -250,5 +272,5 @@ function main(nbatches, npixels, wavenumber, source_toml, target_toml; FT=Float3
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main(parse(Int64, ARGS[1]), parse(Int64, ARGS[2]), parse(Float32, ARGS[3]), ARGS[4], ARGS[5])
+    main(parse(Int64, ARGS[1]), parse(Int64, ARGS[2]), parse(Float32, ARGS[3]))
 end
