@@ -1,3 +1,9 @@
-src/*~
-examples/*~
-test/*~
+CliMAgen/src/*~
+CliMAgen/examples/*~
+CliMAgen/examples/context2dturbulence/*sh
+CliMAgen/examples/context2dturbulence/*png
+CliMAgen/examples/context2dturbulence/output_512x512/*
+CliMAgen/examples/context2dturbulence/output_64x64/*
+CliMAgen/examples/context2dturbulence/stats/*
+CliMAgen/examples/context2dturbulence/*out
+CliMAgen/examples/context2dturbulence/*csv

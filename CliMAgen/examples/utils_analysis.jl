@@ -3,7 +3,7 @@ using Statistics
 using CUDA
 using Random
 using FFTW
-
+using Plots
 using CliMAgen
 
 
@@ -143,4 +143,197 @@ function make_icr(batch)
     τ = 1e-2 # condensation time scale which was set in the fluid simulations
     cond = @. batch * (batch > 0) / τ
     return  mean(cond, dims=(1,2))
+end
+
+
+## The following are useful plots for model assessment during training, but not for publication.
+
+"""
+    heatmap_grid(samples, ch, savepath, plotname; ncolumns = 10,FT=Float32, logger=nothing)
+
+Creates a grid of images with `ncolumns` using the data `samples`. 
+Saves the resulting plot at joinpath(savepath,plotname).
+
+"""
+function heatmap_grid(samples, ch, savepath, plotname; clims = nothing, ncolumns = 5,FT=Float32, logger=nothing)
+    batchsize = size(samples)[end]
+    ncolumns = min(batchsize, ncolumns)
+    # We want either an even number of images per row
+    nrows = div(batchsize, ncolumns)
+    nimages = nrows*ncolumns
+    if clims isa Nothing
+        clims = (minimum(samples), maximum(samples))
+    end
+    plts = []
+    for img in 1:nimages
+        push!(plts, Plots.heatmap(samples[:,:,ch,img], aspect_ratio=:equal, clims = clims, border = :box, legend = :none, axis=([], false)))
+    end
+    Plots.plot(plts..., layout = (nrows, ncolumns), size = (ncolumns*200, nrows*200))
+    Plots.savefig(joinpath(savepath, plotname))
+
+    if !(logger isa Nothing)
+        CliMAgen.log_artifact(logger, joinpath(savepath, plotname); name=plotname, type="PNG-file")
+    end
+end
+
+"""
+    loss_plot(savepath::String, plotname::String; xlog::Bool=false, ylog::Bool=true)
+
+Creates and saves a plot of the training and test loss values, for both the spatial
+and mean loss terms; creates a saves a plot of the training and test loss values
+for the total loss, if using the vanilla loss function. Which option is carried out
+depends on the number of columns in the data file: 5 for the split loss function, and 3
+for the vanilla loss function.
+
+Whether or not the axes are linear or logarithmic is controlled
+by the `xlog` and `ylog` boolean keyword arguments. The saved plot can be found at `joinpath(savepath,plotname)`.
+"""
+function loss_plot(savepath::String, plotname::String; xlog::Bool=false, ylog::Bool=true)
+    path = joinpath(savepath,plotname)
+    filename = joinpath(savepath, "losses.txt")
+    data = DelimitedFiles.readdlm(filename, ',', skipstart = 1)
+    
+    if size(data)[2] == 5
+        plt1 = plot(left_margin = 20Plots.mm, ylabel = "Log10(Mean Loss)")
+	plt2 = plot(bottom_margin = 10Plots.mm, left_margin = 20Plots.mm,xlabel = "Epoch", ylabel = "Log10(Spatial Loss)")
+	plot!(plt1, data[:,1], data[:,2], label = "Train", linecolor = :black)
+    	plot!(plt1, data[:,1], data[:,4], label = "Test", linecolor = :red)
+    	plot!(plt2, data[:,1], data[:,3], label = "", linecolor = :black)
+    	plot!(plt2, data[:,1], data[:,5], label = "", linecolor = :red)
+    	if xlog
+           plot!(plt1, xaxis=:log)
+           plot!(plt2, xaxis=:log)
+    	end
+    	if ylog
+           plot!(plt1, yaxis=:log)
+           plot!(plt2, yaxis=:log)
+        end
+	plot(plt1, plt2, layout =(2,1))
+	savefig(path)
+    elseif size(data)[2] == 3
+        plt1 = plot(left_margin = 20Plots.mm, ylabel = "Log10(Loss)")
+	plot!(plt1, data[:,1], data[:,2], label = "Train", linecolor = :black)
+    	plot!(plt1, data[:,1], data[:,3], label = "Test", linecolor = :red)
+    	if xlog
+           plot!(plt1, xaxis=:log)
+    	end
+    	if ylog
+           plot!(plt1, yaxis=:log)
+        end
+	savefig(path)
+    else
+        @info "Loss CSV file has incorrect number of columns"
+    end
+end
+
+
+"""
+    spatial_mean_plot(data, gen, savepath, plotname; FT=Float32)
+
+Creates and saves histogram plots of the spatial means of `data` and `gen`;
+the plot is saved at joinpath(savepath, plotname). Both `data` and `gen`
+are assumed to be of size (Nx, Ny, Nchannels, Nbatch).
+"""
+function spatial_mean_plot(data, gen, savepath, plotname; FT=Float32)
+    inchannels = size(data)[end-1]
+
+    gen = gen |> Flux.cpu
+    gen_results = mapslices(Statistics.mean, gen, dims=[1, 2])
+    gen_results = gen_results[1,1,:,:]
+
+    data_results = mapslices(Statistics.mean, data, dims=[1, 2])
+    data_results = data_results[1,1,:,:]
+    plot_array = []
+    for channel in 1:inchannels
+        plt = plot(xlabel = "Spatial Mean", ylabel = "Probability density", title = string("Ch:",string(channel)))
+        plot!(plt, data_results[channel,:], seriestype=:stephist, label = "data", norm = true, color = :red)
+        plot!(plt, gen_results[channel,:],  seriestype=:stephist, label ="generated", norm = true, color = :black)
+        push!(plot_array, plt)
+    end
+    
+    plot(plot_array..., layout=(1, inchannels))
+    Plots.savefig(joinpath(savepath, plotname))
+
+end
+
+"""
+    qq_plot(data, gen, savepath, plotname; FT=Float32)
+
+Creates and saves qq plots of the higher order cumulants of `data` and `gen`;
+the plot is saved at joinpath(savepath, plotname). Both `data` and `gen`
+are assumed to be of size (Nx, Ny, Nchannels, Nbatch).
+"""
+function qq_plot(data, gen, savepath, plotname; FT=Float32)
+    statistics = (Statistics.var, x -> StatsBase.cumulant(x[:], 3), x -> StatsBase.cumulant(x[:], 4))
+    statistic_names = ["σ²", "κ₃", "κ₄"]
+    inchannels = size(data)[end-1]
+
+    gen = gen |> Flux.cpu
+    gen_results = mapslices.(statistics, Ref(gen), dims=[1, 2])
+    gen_results = cat(gen_results..., dims=ndims(gen) - 2)
+    sort!(gen_results, dims=ndims(gen_results)) # CDF of the generated data for each channel and each statistics
+
+
+    data_results = mapslices.(statistics, Ref(data), dims=[1, 2])
+    data_results = cat(data_results..., dims=ndims(data) - 2)
+    sort!(data_results, dims=ndims(data_results)) # CDF of the  data for each channel and each statistics
+    plot_array = []
+    for channel in 1:inchannels
+        for stat in 1:length(statistics)
+            data_cdf = data_results[1, stat, channel, :]
+            gen_cdf = gen_results[1, stat, channel, :]
+            plt = plot(gen_cdf, data_cdf, color=:red, label="")
+            plot!(plt, data_cdf, data_cdf, color=:black, linestyle=:dot, label="")
+            plot!(plt,
+                xlabel="Gen",
+                ylabel="Data",
+                title=string("Ch:", string(channel), ", ", statistic_names[stat]),
+                tickfontsize=4)
+            push!(plot_array, plt)
+        end
+    end
+
+    plot(plot_array..., layout=(inchannels, length(statistics)), aspect_ratio=:equal)
+    Plots.savefig(joinpath(savepath, plotname))
+
+end
+
+"""
+Helper function to make a spectrum plot.
+"""
+function spectrum_plot(data, gen, savepath, plotname; FT=Float32) 
+    statistics = x -> hcat(power_spectrum2d(x)...)
+    inchannels = size(data)[end-1]
+
+    data_results = mapslices(statistics, data, dims=[1, 2])
+    k = data_results[:, 2, 1, 1]
+    data_results = data_results[:, 1, :, :]
+
+    gen = gen |> Flux.cpu
+    gen_results = mapslices(statistics, gen, dims=[1, 2])
+    gen_results = gen_results[:, 1, :, :]
+
+    plot_array = []
+    for channel in 1:inchannels
+        data_spectrum = mean(data_results[:, channel, :], dims=2)
+        lower_data_spectrum = mapslices(x -> percentile(x[:], 10), data_results[:, channel, :], dims=2)
+        upper_data_spectrum = mapslices(x -> percentile(x[:], 90), data_results[:, channel, :], dims=2)
+        data_confidence = (data_spectrum .- lower_data_spectrum, upper_data_spectrum .- data_spectrum)
+        gen_spectrum = mean(gen_results[:, channel, :], dims=2)
+        lower_gen_spectrum = mapslices(x -> percentile(x[:], 10), gen_results[:, channel, :], dims=2)
+        upper_gen_spectrum = mapslices(x -> percentile(x[:], 90), gen_results[:, channel, :], dims=2)
+        gen_confidence = (gen_spectrum .- lower_gen_spectrum, upper_gen_spectrum .- gen_spectrum)
+        plt = plot(k, data_spectrum, ribbon = data_confidence, color=:red, label="", yaxis=:log, xaxis=:log)
+        plot!(plt, k, gen_spectrum, ribbon = gen_confidence, color=:blue, label="")
+        plot!(plt, ylim = (1e-10, 1e-1))
+        plot!(plt,
+            xlabel="Log(k)",
+            ylabel="Log(Power)",
+            title=string("Ch:", string(channel)),
+            tickfontsize=4)
+        push!(plot_array, plt)
+    end
+
+    plot(plot_array..., layout=(inchannels, 1))
+    Plots.savefig(joinpath(savepath, plotname))
 end
